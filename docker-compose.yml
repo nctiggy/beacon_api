@@ -1,0 +1,95 @@
+version: "3.4"
+
+services:
+  mosquitto:
+    image: toke/mosquitto
+    networks:
+      - traefik-net
+      - default
+    ports:
+      - 1883:1883
+      - 9001:9001
+    deploy:
+      labels:
+        - "traefik.port=9001"
+        - "traefik.frontend.rule=Host:mqtt-ws.localhost"
+        - "traefik.docker.network=traefik-net"
+        - "traefik.enable=true"
+  influx:
+    image: influxdb
+    environment:
+      - "INFLUXDB_DB=iot"
+    volumes:
+      - ~/iot_vol/influxdb:/var/lib/influxdb
+  nodered:
+    image: registry.bluehairfreak.com/node-red-docker
+    networks:
+      - traefik-net
+      - default
+    volumes:
+      - ~/iot_vol/nodered:/data
+    ports:
+      - 1880:1880
+    deploy:
+      labels:
+        - "traefik.port=1880"
+        - "traefik.frontend.rule=Host:nodered.localhost"
+        - "traefik.docker.network=traefik-net"
+        - "traefik.enable=true"
+  grafana:
+    image: grafana/grafana
+    networks:
+      - traefik-net
+      - default
+    ports:
+      - 3000:3000
+    volumes:
+      - ~/iot_vol/grafana:/var/lib/grafana
+    environment:
+      - GF_SERVER_ROOT_URL=http://grafana.localhost
+    deploy:
+      labels:
+        - "traefik.port=3000"
+        - "traefik.frontend.rule=Host:grafana.localhost"
+        - "traefik.docker.network=traefik-net"
+        - "traefik.enable=true"
+  mongo:
+    image: mongo
+    volumes:
+      - ~/iot_vol/mongo:/data/db
+  api:
+    image: drivethru:latest
+    networks:
+      - default
+      - traefik-net
+    ports:
+      - 3001:3001
+    deploy:
+      labels:
+        - "traefik.port=3001"
+        - "traefik.frontend.rule=Host:beacon.localhost"
+        - "traefik.docker.network=traefik-net"
+        - "traefik.enable=true"
+  drivethru-thru-screen:
+    image: registry.bluehairfreak.com/drivethru-thru-screen
+    ports:
+      - 8080:80
+  minio:
+    image: minio/minio
+    volumes:
+      - ~/iot_vol/minio-data1:/data
+      - ~/iot_vol/minio-config:/root/.minio
+    ports:
+      - "9000:9000"
+    command: server /data
+  boomi:
+    image: boomi/atom:2.3.0
+    ports:
+      9000:9000
+    environment:
+      - "URL=https://platform.boomi.com"
+      - "INSTALL_TOKEN=atom-735bbfb9-a1ab-4294-9209-cf8cef8bef8d"
+
+networks:
+  traefik-net:
+    external: true
